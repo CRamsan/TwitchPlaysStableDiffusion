@@ -5,18 +5,28 @@ import kotlin.time.Duration.Companion.seconds
  * Take in an [input] and parse it to provide a [Command]. The return value is a [Result], so the caller needs to
  * verify that we were able to get a valid [Command].
  */
-fun parseCommand(input: String): Result<Command> = runCatching {
-    if (input.isInvalid()) {
-        throw RuntimeException("Invalid input: $input")
-    }
-
+fun parseCommand(input: String): Result<Command?> = runCatching {
     val tokens = input.trim().split(" ")
 
-    val prefix = Prefix.valueOf(tokens.first().uppercase())
+    try {
+        val rawPrefix = tokens.firstOrNull()?.uppercase() ?: return@runCatching null
 
-    when (prefix) {
-        Prefix.SD -> parseSdCommand(tokens.subList(1, tokens.size))
-        Prefix.SDA -> parseAdminCommand(tokens.subList(1, tokens.size))
+        val prefix = Prefix.values().find { it.name == rawPrefix } ?: return@runCatching null
+
+        if (input.containsInvalidCharacters()) {
+            throw RuntimeException("Input contains invalid characters.")
+        }
+
+        if (input.isTooLong()) {
+            throw RuntimeException("Input is too long. Max length is $MAX_LENGTH.")
+        }
+
+        when (prefix) {
+            Prefix.SD -> parseSdCommand(tokens.subList(1, tokens.size))
+            Prefix.SDA -> parseAdminCommand(tokens.subList(1, tokens.size))
+        }
+    } catch (enumFailure: IllegalArgumentException) {
+        throw RuntimeException("Not a valid command.", enumFailure)
     }
 }
 
@@ -98,21 +108,23 @@ private fun List<String>.getTerm(): String {
             if (it.isLetters()) {
                 it
             } else {
-                TODO()
+                throw RuntimeException("The term should only contain alphanumeric characters.")
             }
         }
     } else {
-        TODO()
+        throw RuntimeException("The command is missing a term to add.")
     }
 }
 
-private fun String.isInvalid() =
+private fun String.containsInvalidCharacters() =
     contains('[') ||
-            contains(']') ||
-            contains('(') ||
-            contains(')') ||
-            contains('|') ||
-            length > 40
+    contains(']') ||
+    contains('(') ||
+    contains(')') ||
+    contains('|')
+
+const val MAX_LENGTH = 45
+private fun String.isTooLong() = length > MAX_LENGTH
 
 private fun String.isLetters(): Boolean {
     for (c in this)

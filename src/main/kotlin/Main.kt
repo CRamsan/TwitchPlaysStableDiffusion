@@ -40,6 +40,11 @@ lateinit var sdClient: StableDiffusionClient
 lateinit var commandBuffer: CommandBuffer
 lateinit var idleManager: IdleManager
 
+const val ENV_ACCESS_TOKEN = "ACCESS_TOKEN"
+const val ENV_CHANNEL_NAME = "CHANNEL_NAME"
+
+var channelName = ""
+
 fun main() {
     logger.info("Launching program")
 
@@ -51,8 +56,11 @@ fun main() {
         }
     }
 
+    val accessToken = System.getenv(ENV_ACCESS_TOKEN) ?: throw RuntimeException("Set the $ENV_ACCESS_TOKEN env variable")
+    channelName = System.getenv(ENV_CHANNEL_NAME) ?: throw RuntimeException("Set the $ENV_CHANNEL_NAME env variable")
+
     // chat credential
-    val credential = OAuth2Credential("twitch", "")
+    val credential = OAuth2Credential("twitch", accessToken)
     val twitchClient = TwitchClientBuilder.builder()
         .withEnableHelix(true)
         .withEnableChat(true)
@@ -68,7 +76,7 @@ fun main() {
     observeConsoleInput()
     processCommandQueueAsync()
 
-    twitchClient.chat.joinChannel("")
+    twitchClient.chat.joinChannel(channelName)
 
     pageGUI(
         sdClient,
@@ -107,6 +115,7 @@ fun processCommandQueueAsync() {
                 break
             } catch (throwable: Throwable) {
                 logger.error("Exception: ${throwable.message}")
+                throwable.consoleOut()
             }
         }
     }
@@ -137,11 +146,16 @@ fun observeConsoleInput() {
                 }
             } catch (throwable: Throwable) {
                 logger.error("Exception: ${throwable.message}")
+                throwable.consoleOut()
             }
         }
     }
 }
 
+private fun Throwable.consoleOut() {
+    println(message)
+    printStackTrace()
+}
 fun setIdleMode(idleMode: Boolean) {
     inIdleMode.value = idleMode
     idleStartTime = if (idleMode) {
@@ -176,15 +190,17 @@ fun updateBufferTime(adminCommand: AdminCommand.SetBufferTime) {
 
 fun observeChat(twitchClient: TwitchClient) {
     twitchClient.eventManager.onEvent(ChannelMessageEvent::class.java) { event ->
+        val username = event.user.name
         try {
-            logger.info("channel: ${event.channel.name}, username:${event.user.name}, message:${event.message}")
+            val message = event.message
+            logger.info("channel: ${event.channel.name}, username:$username, message:$message")
             if (event.message.equals("Execute Order 66.", ignoreCase = true)) {
                 exitProcess(-2)
             }
             if (!listenToChat) {
                 return@onEvent
             }
-            val command = parseCommand(event.message).getOrThrow()
+            val command = parseCommand(event.message).getOrThrow() ?: return@onEvent
 
             if (command is AdminCommand) {
                 logger.warn("Admin commands cannot be run from chat")
@@ -198,6 +214,15 @@ fun observeChat(twitchClient: TwitchClient) {
             throw cancellation
         } catch (throwable: Throwable) {
             logger.error("Exception: ${throwable.message}")
+            throwable.consoleOut()
+            if (!twitchClient.chat.sendMessage(
+                channelName,
+                "Hi $username, your message could not be processed. The reason was: \"${throwable.message}\"",
+            )) {
+                logger.error("Could not send reply back to user $username.")
+            } else {
+                logger.info("Replied back to user $username.")
+            }
         }
     }
 }

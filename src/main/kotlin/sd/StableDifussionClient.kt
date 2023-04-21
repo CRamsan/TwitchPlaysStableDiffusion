@@ -14,8 +14,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.util.Base64
 import kotlin.random.Random
+
 
 /**
  * Client to interface with SD. It holds the state of the context currently being used
@@ -122,9 +124,21 @@ class StableDiffusionClient(
         val resultImageEncoded = response.images.firstOrNull()
         val imageBytes = Base64.getDecoder().decode(resultImageEncoded)
 
+        val strTmp = System.getProperty("java.io.tmpdir")
+        val tmpFolder = File(
+            strTmp,
+            "tdsd",
+        )
+
+        if (!tmpFolder.exists() && !tmpFolder.mkdirs()) {
+            throw RuntimeException("Cannot create tmp folder: ${tmpFolder.absolutePath}")
+        }
+
         val file = kotlin.io.path.createTempFile(
+            directory = tmpFolder.toPath(),
             suffix = ".jpg"
         ).toFile()
+
         file.writeBytes(imageBytes)
 
         logger.info("Saving image: ${file.absoluteFile}")
@@ -243,13 +257,14 @@ class StableDiffusionClient(
         if (positivePrompt.isEmpty() || position !in 0..positivePrompt.lastIndex) {
             return ""
         }
+        val oldTerm = positivePrompt[position].term
 
         positivePrompt.removeAt(position)
 
         _uiState.value = _uiState.value.copy(
             positivePrompt = positivePrompt
         )
-        return "Removed term ${uiState.value.positivePrompt[position].term}"
+        return "Removed term $oldTerm"
     }
 
     private fun updatePositiveTerm(position: Int, term: String): String {
@@ -292,12 +307,13 @@ class StableDiffusionClient(
             return ""
         }
 
+        val oldTerm = negativePrompt[position]
         negativePrompt.removeAt(position)
 
         _uiState.value = _uiState.value.copy(
             negativePrompt = negativePrompt
         )
-        return "Removed negative term ${uiState.value.positivePrompt[position].term}"
+        return "Removed negative term $oldTerm"
     }
 
     private fun updateNegativeTerm(position: Int, term: String): String {

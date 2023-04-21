@@ -26,13 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import sd.Term
 
 @Composable
@@ -84,7 +81,7 @@ fun TextSection(
         Text(text,
             modifier = Modifier
                 .wrapContentHeight(),
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.caption,
         )
     }
 }
@@ -101,6 +98,11 @@ fun ParametersSection(
         modifier = modifier,
     ) {
         Column {
+            Text(
+                "Parameters",
+                style = MaterialTheme.typography.h5,
+                modifier = Modifier.padding(vertical = Padding.medium)
+            )
             Text("CFG Scale: $cfgScale")
             Text("Width: $width")
             Text("Height: $height")
@@ -119,7 +121,11 @@ fun PromptSection(
         modifier = modifier.animateContentSize()
     ) {
         Column {
-            Text(label)
+            Text(
+                label,
+                style = MaterialTheme.typography.h5,
+                modifier = Modifier.padding(vertical = Padding.medium)
+            )
             promptList.forEachIndexed { index, term ->
                 if (term.emphasis != 0) {
                     Text("[$index][Weight: ${term.emphasis}]: ${term.term}")
@@ -218,16 +224,24 @@ fun Instructions(
     modifier: Modifier = Modifier,
 ) {
     Frame(modifier) {
-        Row {
+        Column {
             Text(
-                INSTRUCTIONS_PT1,
-                fontSize = 14.sp,
+                "Instructions",
+                style = MaterialTheme.typography.h5,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
-            Divider(Modifier.width(Padding.large))
-            Text(
-                INSTRUCTIONS_PT2,
-                fontSize = 14.sp,
-            )
+
+            Row {
+                Text(
+                    INSTRUCTIONS_PT1,
+                    style = MaterialTheme.typography.body2,
+                )
+                Divider(Modifier.width(Padding.large))
+                Text(
+                    INSTRUCTIONS_PT2,
+                    style = MaterialTheme.typography.body2,
+                )
+            }
         }
     }
 }
